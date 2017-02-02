@@ -1,33 +1,36 @@
-part of sine_parser.src.grammar;
+import 'dart:collection';
+import 'dart:typed_data' show Uint32List;
+import 'package:collection/collection.dart' show ListEquality;
+import 'package:built_collection/built_collection.dart';
 
-class _Superset<E extends GrammarSymbol> {
-  final Expando<int> indices = new Expando<int>();
+class Superset<E> {
+  final Map<E, int> _indices = new HashMap<E, int>();
   final BuiltList<E> elements;
 
-  _Superset(Iterable<E> source) : elements = new BuiltList<E>(source) {
+  Superset(Iterable<E> source) : elements = new BuiltList<E>(source) {
     assert(elements.length == elements.toSet().length);
     for (var i = 0; i < elements.length; i++) {
-      indices[elements[i]] = i;
+      _indices[elements[i]] = i;
     }
   }
 
   int indexOf(E symbol) {
-    assert(indices[symbol] != null);
-    return indices[symbol];
+    assert(_indices[symbol] != null);
+    return _indices[symbol];
   }
 }
 
 ///
-class _SymbolSet<E extends GrammarSymbol> extends SetBase<E> {
-  final _Superset<E> _superset;
+class Subset<E> extends SetBase<E> {
+  final Superset<E> _superset;
   final Uint32List _storage;
   int _length;
 
-  _SymbolSet(this._superset)
+  Subset(this._superset)
       : _storage = new Uint32List((_superset.elements.length / 32).ceil()),
         _length = 0;
 
-  _SymbolSet.copy(this._superset, Uint32List storage, this._length)
+  Subset.copy(this._superset, Uint32List storage, this._length)
       : _storage = new Uint32List.fromList(storage);
 
   bool _isSet(int index) => _storage[index ~/ 32] & (1 << index % 32) > 0;
@@ -50,7 +53,7 @@ class _SymbolSet<E extends GrammarSymbol> extends SetBase<E> {
 
   int get length => _length;
 
-  Iterator<E> get iterator => new _SymbolSetIterator<E>(this);
+  Iterator<E> get iterator => new SubsetIterator<E>(this);
 
   bool contains(Object object) =>
       object is E && _isSet(_superset.indexOf(object));
@@ -66,21 +69,21 @@ class _SymbolSet<E extends GrammarSymbol> extends SetBase<E> {
     return true;
   }
 
-  Set<E> toSet() => new _SymbolSet.copy(_superset, _storage, _length);
+  Set<E> toSet() => new Subset.copy(_superset, _storage, _length);
 
   bool operator ==(other) =>
-      other is _SymbolSet<E> &&
+      other is Subset<E> &&
       other._superset == _superset &&
       const ListEquality<int>().equals(other._storage, _storage);
 
   int get hashCode => _storage.fold(_superset.hashCode, (a, b) => a ^ b);
 }
 
-class _SymbolSetIterator<E extends GrammarSymbol> extends Iterator<E> {
-  final _SymbolSet<E> _set;
+class SubsetIterator<E> extends Iterator<E> {
+  final Subset<E> _set;
   int _progress = null;
 
-  _SymbolSetIterator(this._set);
+  SubsetIterator(this._set);
 
   E get current =>
       _progress != null && _progress < _set._superset.elements.length

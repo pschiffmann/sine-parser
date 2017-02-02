@@ -1,12 +1,9 @@
 library sine_parser.src.grammar;
 
 import 'dart:collection';
-import 'dart:typed_data' show Uint32List;
 import 'package:built_collection/built_collection.dart';
-import 'package:collection/collection.dart' show ListEquality;
 import 'package:tuple/tuple.dart' show Tuple2;
-
-part 'subset.dart';
+import 'subset.dart';
 
 /// Type union over [Nonterminal] and [Terminal].
 abstract class GrammarSymbol {}
@@ -77,9 +74,9 @@ class Grammar {
   final BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>> first;
   final BuiltMap<Nonterminal, bool> nullable;
 
-  /*_Superset<Terminal> _terminalSuperset;
-  _Superset<Nonterminal> _nonterminalSuperset;
-  _Superset<GrammarSymbol> _symbolSuperset;*/
+  final Superset<Terminal> _terminalSuperset;
+  final Superset<Nonterminal> _nonterminalSuperset;
+  final Superset<GrammarSymbol> _symbolSuperset;
 
   factory Grammar.fromProductions(
       Iterable<Production> productions, Nonterminal startSymbol,
@@ -108,14 +105,18 @@ class Grammar {
   }
 
   Grammar._(this.name, this.nonterminals, this.terminals, this.productions,
-      this.startSymbol, this.first, this.nullable);
+      this.startSymbol, this.first, this.nullable)
+      : _nonterminalSuperset = new Superset<Nonterminal>(nonterminals),
+        _terminalSuperset = new Superset<Terminal>(terminals),
+        _symbolSuperset = new Superset<GrammarSymbol>(terminals);
 
-  /*Set<Terminal> terminalSet() => new _SymbolSet<Terminal>(_terminalSuperset);
+  Subset<Terminal> terminalSet() => new Subset<Terminal>(_terminalSuperset);
 
-  Set<Nonterminal> nonterminalSet() =>
-      new _SymbolSet<Nonterminal>(_nonterminalSuperset);
+  Subset<Nonterminal> nonterminalSet() =>
+      new Subset<Nonterminal>(_nonterminalSuperset);
 
-  Set<GrammarSymbol> symbolSet() => new _SymbolSet(_symbolSuperset);*/
+  Subset<GrammarSymbol> symbolSet() => new Subset(_symbolSuperset);
+
   String toString() =>
       (name != null ? '$name = ' : '') +
       '($nonterminals, $terminals, '
