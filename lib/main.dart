@@ -5,7 +5,7 @@ import 'src/lr.dart';
 
 /// G = ({Z, E, T, F}, {a, +, *, (, )}, {Z → E, E → E + T, E → T, T → T * F,
 ///                                      T → F, F → ( E ), F → a}, Z)
-final Grammar grammar = parse("""
+final Grammar E = parse("""
   <Z> -> <E> ;
   <E> -> <E> '+' <T> ;
   <E> -> <T> ;
@@ -15,22 +15,11 @@ final Grammar grammar = parse("""
   <F> -> 'a' ;
 """);
 
+/// |states| == 46626
 Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
 
 void main() {
-  C.productions.forEach((n, p) {
-    print("$n / ${C.first[n]}");
-    print(p.join("\n"));
-    print("");
-  });
-  generate(C);
-
-  /*var input = ['a', '+', 'a', '*', 'a'].map((s) => new Terminal(s)).toList();
-  print('Parsing input $input with grammar G = $grammar');
-
-  for (var nonterminal in grammar.nonterminals) {
-    print("fst($nonterminal) = ${grammar.first[nonterminal]}");
-  }*/
+  var stateMachine = new StateMachine.fromGrammar(E);
 }
 
 /// Parses `source` as a Grammar definition. Because it splits at `/\s+/`, all

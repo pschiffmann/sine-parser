@@ -1,7 +1,12 @@
 library sine_parser.src.grammar;
 
 import 'dart:collection';
+import 'dart:typed_data' show Uint32List;
 import 'package:built_collection/built_collection.dart';
+import 'package:collection/collection.dart' show ListEquality;
+import 'package:tuple/tuple.dart' show Tuple2;
+
+part 'subset.dart';
 
 /// Type union over [Nonterminal] and [Terminal].
 abstract class GrammarSymbol {}
@@ -62,70 +67,99 @@ class Production {
 
 ///
 class Grammar {
+  final String name;
+
   final BuiltSet<Nonterminal> nonterminals;
   final BuiltSet<Terminal> terminals;
   final BuiltMap<Nonterminal, BuiltSet<Production>> productions;
   final Nonterminal startSymbol;
 
   final BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>> first;
+  final BuiltMap<Nonterminal, bool> nullable;
 
-  Grammar.fromProductions(Iterable<Production> productions, this.startSymbol)
-      : nonterminals = new BuiltSet<Nonterminal>(productions.map((p) => p.lhs)),
+  /*_Superset<Terminal> _terminalSuperset;
+  _Superset<Nonterminal> _nonterminalSuperset;
+  _Superset<GrammarSymbol> _symbolSuperset;*/
+
+  factory Grammar.fromProductions(
+      Iterable<Production> productions, Nonterminal startSymbol,
+      {String name}) {
+    var productionMap = new BuiltMap<Nonterminal, BuiltSet<Production>>(() {
+      var result = {};
+      for (var production in productions) {
+        result.putIfAbsent(production.lhs, () => []).add(production);
+      }
+      for (var nonterminal in result.keys) {
+        result[nonterminal] = new BuiltSet<Production>(result[nonterminal]);
+      }
+      return result;
+    }());
+    var nonterminals = new BuiltSet<Nonterminal>(productionMap.keys),
         terminals = new BuiltSet<Terminal>(productions
             .expand((p) => p.rhs)
             .where((symbol) => symbol is Terminal)),
-        productions = new BuiltMap<Nonterminal, BuiltSet<Production>>(() {
-          var result = {};
-          for (var production in productions) {
-            result.putIfAbsent(production.lhs, () => []).add(production);
-          }
-          for (var nonterminal in result.keys) {
-            result[nonterminal] = new BuiltSet<Production>(result[nonterminal]);
-          }
-          return result;
-        }()),
-        first = _calculateFirst(productions) {
+        firstAndNullable = _calculateFirst(productionMap);
+
     if (!nonterminals.contains(startSymbol))
       throw new ArgumentError("Productions don't contain the start symbol");
+
+    return new Grammar._(name, nonterminals, terminals, productionMap,
+        startSymbol, firstAndNullable.item1, firstAndNullable.item2);
   }
 
-  String toString() => '($nonterminals, $terminals, '
+  Grammar._(this.name, this.nonterminals, this.terminals, this.productions,
+      this.startSymbol, this.first, this.nullable);
+
+  /*Set<Terminal> terminalSet() => new _SymbolSet<Terminal>(_terminalSuperset);
+
+  Set<Nonterminal> nonterminalSet() =>
+      new _SymbolSet<Nonterminal>(_nonterminalSuperset);
+
+  Set<GrammarSymbol> symbolSet() => new _SymbolSet(_symbolSuperset);*/
+  String toString() =>
+      (name != null ? '$name = ' : '') +
+      '($nonterminals, $terminals, '
       '{${productions.values.expand((l) => l).join(", ")}}, $startSymbol)';
 }
 
 ///
-BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>> _calculateFirst(
-    Iterable<Production> productions) {
-  var first = new HashMap.fromIterable(productions,
-      key: (p) => p.lhs, value: (_) => new Set());
-  var awaiting = new HashMap<Nonterminal, List<Production>>.fromIterable(
-      productions,
-      key: (p) => p.lhs,
-      value: (_) => []);
+Tuple2<BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>>,
+        BuiltMap<Nonterminal, bool>>
+    _calculateFirst(BuiltMap<Nonterminal, BuiltSet<Production>> productions) {
+  var first =
+          new HashMap.fromIterable(productions.keys, value: (_) => new Set()),
+      nullable =
+          new HashMap.fromIterable(productions.keys, value: (_) => false),
 
-  var queue = new LinkedHashSet<Production>.from(productions);
+      // All [Production]s in the list are computed _so far_, and will only
+      // change their first sets if the key [Nonterminal] updates its own first
+      // set, or becomes nullable.
+      awaiting = new HashMap<Nonterminal, List<Production>>.fromIterable(
+          productions.keys,
+          value: (_) => []);
+
+  var queue =
+      new LinkedHashSet<Production>.from(productions.values.expand((x) => x));
   while (queue.isNotEmpty) {
     var production = queue.first;
     queue.remove(production);
     var current = first[production.lhs];
     var lengthBefore = current.length;
 
-    var nullable = true;
+    var optional = production.rhs.isEmpty;
     for (var symbol in production.rhs) {
-      if (symbol is Terminal) {
-        current.add(symbol);
-        nullable = false;
-      } else {
-        current.addAll(first[symbol as Nonterminal]);
-        if (!current.remove(Terminal.emptyWord)) {
-          nullable = false;
+      current.add(symbol);
+      if (symbol is Nonterminal) {
+        current.addAll(first[symbol]);
+        if (!nullable[symbol]) {
+          optional = false;
           awaiting[symbol].add(production);
         }
       }
-      if (!nullable) break;
+      if (!optional) break;
     }
-    if (nullable) {
-      first[production.lhs].add(Terminal.emptyWord);
+    if (optional) {
+      nullable[production.lhs] = true;
     }
     if (current.length != lengthBefore) {
       queue.addAll(awaiting[production.lhs]);
@@ -136,5 +170,6 @@ BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>> _calculateFirst(
   for (var nonterminal in first.keys) {
     first[nonterminal] = new BuiltSet<GrammarSymbol>(first[nonterminal]);
   }
-  return new BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>>(first);
+  return new Tuple2(new BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>>(first),
+      new BuiltMap<Nonterminal, bool>(nullable));
 }

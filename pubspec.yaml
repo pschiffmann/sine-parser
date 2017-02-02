@@ -1,8 +1,9 @@
 name: sine_parser
 dependencies:
+  collection: any
   built_collection: any
   built_value: any
-  bit_set: any
+  tuple: any
 dev_dependencies:
   build: ^0.6.0
   build_runner: ^0.1.0
