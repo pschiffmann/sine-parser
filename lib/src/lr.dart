@@ -5,36 +5,43 @@ import 'package:tuple/tuple.dart' show Tuple2;
 import 'grammar.dart';
 
 class StateMachine {
-  final Set<State> states = new HashSet<State>(
-      equals: (s1, s2) => s1.closure == s2.closure,
-      hashCode: (s) => s.closure.hashCode);
+  final BuiltList<State> states;
 
-  Expando<int> stateNumbers = new Expando<int>();
+  final Grammar grammar;
 
-  final State start;
+  State get start => states.first;
 
-  StateMachine(this.start);
+  StateMachine(this.states, this.grammar);
 
   factory StateMachine.fromGrammar(Grammar grammar) {
-    var firstState = new State.fromKernel(
-        grammar.productions[grammar.startSymbol].map((production) =>
-            new Tuple2(new Pass(production), Terminal.endOfInput)),
-        grammar);
+    // Contains all [State]s that have been discovered but not yet processed.
+    // For these states, transitions still need to be calculated.
+    final queue = new Queue<State>();
 
-    var stateMachine = new StateMachine(firstState);
-    var queue = new Queue<State>()..add(firstState);
+    // Maps kernels to states.
+    final Map<BuiltSetMultimap<Pass, Terminal>, State> states = {};
+
+    // Returns the [State] that corresponds to the assigned kernel. If the state
+    // needed to be created, also insert it into `queue`.
+    final forKernel = (BuiltSetMultimap<Pass, Terminal> kernel) =>
+        states.putIfAbsent(kernel, () {
+          final state = new State.fromKernel(states.length, kernel, grammar);
+          queue.add(state);
+          return state;
+        });
+
+    // Initialize `queue` with the first state.
+    forKernel(new BuiltSetMultimap<Pass, Terminal>.build((b) => b.addIterable(
+        grammar.productions[grammar.startSymbol],
+        key: (Production p) => new Pass(p),
+        value: (Production p) => Terminal.endOfInput)));
+
     while (queue.isNotEmpty) {
-      var state = queue.removeFirst();
-      for (var pass in state.closure.keys) {
+      final state = queue.removeFirst();
+      for (final pass in state.closure.keys) {
         if (pass.complete) continue;
 
-        State followUp = state.advance(pass.expected, grammar);
-        if (stateMachine.states.contains(followUp)) {
-          followUp = stateMachine.states.lookup(followUp);
-        } else {
-          stateMachine.states.add(followUp);
-          queue.add(followUp);
-        }
+        final followUp = forKernel(state.advance(pass.expected));
 
         var transition = pass.expected is Terminal
             ? state.shiftTransitions
@@ -44,21 +51,12 @@ class StateMachine {
       }
     }
 
-    return stateMachine;
-  }
-
-  State lookup(State state) {
-    var duplicate = states.lookup(state);
-    if (duplicate == null) {
-      stateNumbers[state] = states.length;
-      states.add(state);
-      return state;
-    }
-    return duplicate;
+    return new StateMachine(new BuiltList<State>(states.values), grammar);
   }
 }
 
 class State {
+  final int id;
   final BuiltSetMultimap<Pass, Terminal> closure;
 
   final Map<Terminal, State> shiftTransitions = new HashMap<Terminal, State>();
@@ -66,12 +64,18 @@ class State {
       new HashMap<Nonterminal, State>();
   final Map<Terminal, Production> handles = new HashMap<Terminal, Production>();
 
-  State(this.closure);
+  State(this.id, this.closure);
 
   factory State.fromKernel(
-      Iterable<Tuple2<Pass, Terminal>> kernel, Grammar grammar) {
-    var closure = kernel.toSet();
-    var queue = new Queue<Tuple2<Pass, Terminal>>.from(closure);
+      int id, BuiltSetMultimap<Pass, Terminal> kernel, Grammar grammar) {
+    final closure = new HashSet<Tuple2<Pass, Terminal>>();
+    kernel.forEachKey((pass, lookAhead) {
+      for (final terminal in lookAhead) {
+        closure.add(new Tuple2(pass, terminal));
+      }
+    });
+
+    final queue = new Queue<Tuple2<Pass, Terminal>>.from(closure);
     while (queue.isNotEmpty) {
       var current = queue.removeFirst();
       if (current.item1.complete || current.item1.expected is! Nonterminal)
@@ -88,21 +92,20 @@ class State {
       }
     }
 
-    return new State(new BuiltSetMultimap<Pass, Terminal>.build((b) =>
-        b.addIterable(closure,
+    return new State(
+        id,
+        new BuiltSetMultimap<Pass, Terminal>.build((b) => b.addIterable(closure,
             key: (tuple) => tuple.item1, value: (tuple) => tuple.item2)));
   }
 
-  State advance(GrammarSymbol exit, Grammar grammar) {
-    var kernel = [];
+  BuiltSetMultimap<Pass, Terminal> advance(GrammarSymbol exit) {
+    var kernel = new SetMultimapBuilder<Pass, Terminal>();
     closure.forEachKey((pass, lookAhead) {
       if (!pass.complete && pass.expected == exit) {
-        for (var terminal in lookAhead) {
-          kernel.add(new Tuple2(pass.next(), terminal));
-        }
+        kernel.addValues(pass.next(), lookAhead);
       }
     });
-    return new State.fromKernel(kernel, grammar);
+    return kernel.build();
   }
 }
 

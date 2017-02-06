@@ -19,7 +19,20 @@ final Grammar E = parse("""
 Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
 
 void main() {
-  var stateMachine = new StateMachine.fromGrammar(E);
+  var grammar = E;
+  var watch = new Stopwatch()..start();
+  var stateMachine = new StateMachine.fromGrammar(grammar);
+  watch.stop();
+  print("Built ${stateMachine.states.length} states from "
+      "${grammar.nonterminals.length} nonterminals, "
+      "${grammar.terminals.length} terminals and "
+      "${grammar.productions.length} productions "
+      "in ${watch.elapsedMilliseconds}ms");
+  for (final state in stateMachine.states) {
+    print("${state.id}:");
+    state.closure.forEachKey((p, l) => print("$p: {${l.join(",")}}"));
+    print("");
+  }
 }
 
 /// Parses `source` as a Grammar definition. Because it splits at `/\s+/`, all
