@@ -71,17 +71,15 @@ class ExpandAction extends ParserAction {
 }
 
 class LookAheadAction extends ParserAction {
-  final BuiltMap<Terminal, int> branches;
+  final BuiltMap<Terminal, ParserAction> branches;
 
   LookAheadAction(this.branches);
 
   void execute(ParsingContext context) {
     if (branches.containsKey(context.tokens.current)) {
-      context.actions
-          .addAll(context.parser.actions[branches[context.tokens.current]]);
+      context.actions.add(branches[context.tokens.current]);
     } else if (branches.containsKey(Terminal.emptyWord)) {
-      context.actions
-          .addAll(context.parser.actions[branches[Terminal.emptyWord]]);
+      context.actions.add(branches[Terminal.emptyWord]);
     } else {
       throw new Exception(
           "Input rejected at token `${context.tokens.current}`");
@@ -92,13 +90,12 @@ class LookAheadAction extends ParserAction {
 }
 
 class ContinueAction extends ParserAction {
-  final BuiltMap<Nonterminal, int> branches;
+  final BuiltMap<Nonterminal, ParserAction> branches;
 
   ContinueAction(this.branches);
 
   void execute(ParsingContext context) {
-    context.actions
-        .addAll(context.parser.actions[branches[context.lastReduced]]);
+    context.actions.add(branches[context.lastReduced]);
   }
 
   String toString() => 'c$branches';

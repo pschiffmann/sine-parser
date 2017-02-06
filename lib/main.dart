@@ -26,10 +26,45 @@ void main() {
   print("Built ${stateMachine.states.length} states from "
       "${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
-      "${grammar.productions.length} productions "
-      "in ${watch.elapsedMilliseconds}ms");
-  for (final state in stateMachine.states) {
+      "${grammar.productions.values.expand((x) => x).length} productions "
+      "in ${watch.elapsed}");
+  analyze(grammar, stateMachine);
+  // printStates(stateMachine);
+}
+
+void analyze(Grammar grammar, StateMachine sm) {
+  var filledCells = 0, trivialActionRows = 0, emptyGotoRows = 0;
+  var totalCells = (grammar.nonterminals.length + grammar.terminals.length) *
+      sm.states.length;
+  for (final state in sm.states) {
+    if (state.shiftTransitions.length + state.handles.length == 1)
+      trivialActionRows++;
+    if (state.gotoTransitions.isEmpty) emptyGotoRows++;
+    filledCells += state.shiftTransitions.length +
+        state.gotoTransitions.length +
+        state.handles.length;
+  }
+  print("analyzing parser table:");
+  print("  ${(100 * filledCells / totalCells).toStringAsPrecision(4)}% "
+      "of the table is filled ($filledCells / $totalCells)");
+  print("  ${emptyGotoRows} empty rows in the goto table");
+  print("  ${trivialActionRows} trivial rows in the action table");
+}
+
+void printStates(StateMachine sm) {
+  for (final state in sm.states) {
     print("${state.id}:");
+    print("shift: {" +
+        state.shiftTransitions.keys
+            .map((k) => "$k: ${state.shiftTransitions[k].id}")
+            .join(", ") +
+        "}");
+    print("reduce: ${state.handles}");
+    print("goto: {" +
+        state.gotoTransitions.keys
+            .map((k) => "$k: ${state.gotoTransitions[k].id}")
+            .join(", ") +
+        "}");
     state.closure.forEachKey((p, l) => print("$p: {${l.join(",")}}"));
     print("");
   }

@@ -38,17 +38,22 @@ class StateMachine {
 
     while (queue.isNotEmpty) {
       final state = queue.removeFirst();
-      for (final pass in state.closure.keys) {
-        if (pass.complete) continue;
+      state.closure.forEachKey((pass, lookAhead) {
+        if (pass.complete) {
+          for (var terminal in lookAhead) {
+            assert(!state.handles.containsKey(terminal));
+            state.handles[terminal] = pass.production;
+          }
+        } else {
+          final followUp = forKernel(state.advance(pass.expected));
 
-        final followUp = forKernel(state.advance(pass.expected));
-
-        var transition = pass.expected is Terminal
-            ? state.shiftTransitions
-            : state.reduceTransitions;
-        assert(!transition.containsKey(pass.expected));
-        transition[pass.expected] = followUp;
-      }
+          var transition = pass.expected is Terminal
+              ? state.shiftTransitions
+              : state.gotoTransitions;
+          assert(!transition.containsKey(pass.expected));
+          transition[pass.expected] = followUp;
+        }
+      });
     }
 
     return new StateMachine(new BuiltList<State>(states.values), grammar);
@@ -60,7 +65,7 @@ class State {
   final BuiltSetMultimap<Pass, Terminal> closure;
 
   final Map<Terminal, State> shiftTransitions = new HashMap<Terminal, State>();
-  final Map<Nonterminal, State> reduceTransitions =
+  final Map<Nonterminal, State> gotoTransitions =
       new HashMap<Nonterminal, State>();
   final Map<Terminal, Production> handles = new HashMap<Terminal, Production>();
 

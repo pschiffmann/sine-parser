@@ -92,9 +92,11 @@ class Grammar {
       return result;
     }());
     var nonterminals = new BuiltSet<Nonterminal>(productionMap.keys),
-        terminals = new BuiltSet<Terminal>(productions
-            .expand((p) => p.rhs)
-            .where((symbol) => symbol is Terminal)),
+        terminals = new BuiltSet<Terminal>.build((b) => b
+          ..add(Terminal.endOfInput)
+          ..addAll(productions
+              .expand((p) => p.rhs)
+              .where((symbol) => symbol is Terminal))),
         firstAndNullable = _calculateFirst(productionMap);
 
     if (!nonterminals.contains(startSymbol))
