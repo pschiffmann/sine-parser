@@ -12,19 +12,13 @@ class Parser {
     context.actions.add(new ExpandAction(0));
 
     while (context.actions.isNotEmpty) {
-      print("reduced: "
-          "${context.reduced.map((x) => x is AstNode ? x.type : x)}");
-      print("lookAhead: ${context.tokens.current}");
-      print("actions:");
-      print(context.actions.reversed.join("\n"));
-      print("");
       context.actions.removeLast().execute(context);
     }
 
     if (context.reduced.length != 1)
       throw new Exception("action stack is empty, but reduced stack is not "
           "- that's a bug in the parser generator :(");
-    if (context.tokens.current != null)
+    if (context.tokens.current != Terminal.endOfInput)
       throw new Exception("action stack is empty, but input is not exhausted "
           "- that's a bug in the parser generator :(");
 
@@ -130,7 +124,7 @@ class ReduceAction extends ParserAction {
 
     context.lastReduced = production.lhs;
     if (context.marked.isNotEmpty) {
-      while (context.marked.last.item2 > context.reduced.length)
+      while (context.marked.last.item2 >= context.reduced.length)
         context.marked.removeLast();
       context.actions.add(context.marked.last.item1);
     }
