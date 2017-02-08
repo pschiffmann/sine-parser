@@ -42,6 +42,7 @@ class StateMachine {
         if (pass.complete) {
           for (var terminal in lookAhead) {
             assert(!state.handles.containsKey(terminal));
+            assert(!state.shiftTransitions.containsKey(terminal));
             state.handles[terminal] = pass.production;
           }
         } else {
@@ -50,7 +51,8 @@ class StateMachine {
           var transition = pass.expected is Terminal
               ? state.shiftTransitions
               : state.gotoTransitions;
-          assert(!transition.containsKey(pass.expected));
+          assert(!(pass.expected is Terminal &&
+              state.handles.containsKey(pass.expected)));
           transition[pass.expected] = followUp;
         }
       });
@@ -86,11 +88,13 @@ class State {
       if (current.item1.complete || current.item1.expected is! Nonterminal)
         continue;
 
-      var lookAhead = new Set()
-        ..add(current.item2)
-        ..addAll(current.item1.lookAhead(grammar));
+      var lookAhead = current.item1.lookAhead(grammar);
+      var lookAheadTerminals = lookAhead.item1,
+          lookAheadNullable = lookAhead.item2;
+      if (lookAheadNullable) lookAheadTerminals.add(current.item2);
+
       for (var production in grammar.productions[current.item1.expected]) {
-        for (var terminal in lookAhead) {
+        for (var terminal in lookAheadTerminals) {
           var pass = new Tuple2(new Pass(production), terminal);
           if (closure.add(pass)) queue.add(pass);
         }
@@ -130,20 +134,25 @@ class Pass {
 
   Pass next() => new Pass(production, progress + 1);
 
-  /// Returns the look-ahead set for the [expected] nonterminal. It contains all
-  /// [Terminal]s that can immediately follow [expected] in this production. May
-  /// contain the same terminal twice.
-  Iterable<Terminal> lookAhead(Grammar grammar) sync* {
+  /// Returns the look-ahead set for the [expected] nonterminal. it contains all
+  /// [Terminal]s that can immediately follow [expected] in this production. The
+  /// second tuple element is `true` if the look-ahead set is nullable.
+  Tuple2<Set<Terminal>, bool> lookAhead(Grammar grammar) {
     if (expected is! Nonterminal)
       throw new StateError("Only Nonterminals have a look-ahead set");
+    final terminals = new HashSet<Terminal>();
+    var nullable = true;
     for (var symbol in production.rhs.skip(progress + 1)) {
-      if (symbol is Terminal) {
-        yield symbol;
-        break;
+      if (symbol is Nonterminal) {
+        terminals.addAll(grammar.first[symbol].where((s) => s is Terminal));
+        nullable = grammar.nullable[symbol];
+      } else {
+        terminals.add(symbol as Terminal);
+        nullable = false;
       }
-      yield* grammar.first[symbol as Nonterminal].where((s) => s is Terminal);
-      if (!grammar.nullable[symbol as Nonterminal]) break;
+      if (!nullable) break;
     }
+    return new Tuple2(terminals, nullable);
   }
 
   String toString() => '${production.lhs} -> '
