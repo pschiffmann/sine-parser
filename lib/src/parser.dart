@@ -9,9 +9,15 @@ class Parser {
 
   Object parse(Iterable<Terminal> input) {
     var context = new ParsingContext(this, input.iterator);
-    context.actions.addAll(actions[0]);
+    context.actions.add(new ExpandAction(0));
 
     while (context.actions.isNotEmpty) {
+      print("reduced: "
+          "${context.reduced.map((x) => x is AstNode ? x.type : x)}");
+      print("lookAhead: ${context.tokens.current}");
+      print("actions:");
+      print(context.actions.reversed.join("\n"));
+      print("");
       context.actions.removeLast().execute(context);
     }
 
@@ -35,7 +41,9 @@ class ParsingContext {
   final List<Tuple2<ParserAction, int>> marked = [];
   Nonterminal lastReduced;
 
-  ParsingContext(this.parser, this.tokens);
+  ParsingContext(this.parser, this.tokens) {
+    tokens.moveNext();
+  }
 }
 
 abstract class ParserAction {
@@ -64,7 +72,7 @@ class ExpandAction extends ParserAction {
   ExpandAction(this.action);
 
   void execute(ParsingContext context) {
-    context.actions.addAll(context.parser.actions[action]);
+    context.actions.addAll(context.parser.actions[action].reversed);
   }
 
   String toString() => 'e($action)';
@@ -95,7 +103,12 @@ class ContinueAction extends ParserAction {
   ContinueAction(this.branches);
 
   void execute(ParsingContext context) {
-    context.actions.add(branches[context.lastReduced]);
+    if (branches.containsKey(context.lastReduced))
+      context.actions.add(branches[context.lastReduced]);
+    else if (context.actions.isNotEmpty)
+      throw new Exception("Can't execute a continuation, which should only "
+          "happen when the parser is done. But there are still actions on "
+          "the parser stack!");
   }
 
   String toString() => 'c$branches';
@@ -119,7 +132,7 @@ class ReduceAction extends ParserAction {
     if (context.marked.isNotEmpty) {
       while (context.marked.last.item2 > context.reduced.length)
         context.marked.removeLast();
-      context.actions.add(context.marked.removeLast().item1);
+      context.actions.add(context.marked.last.item1);
     }
   }
 
