@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:built_collection/built_collection.dart';
+import 'src/encode.dart';
 import 'src/grammar.dart';
 import 'src/lr.dart';
+import 'src/parser.dart';
 
 /// G = ({Z, E, T, F}, {a, +, *, (, )}, {Z → E, E → E + T, E → T, T → T * F,
 ///                                      T → F, F → ( E ), F → a}, Z)
@@ -19,10 +21,11 @@ final Grammar E = parse("""
 Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
 
 void main() {
-  var grammar = E;
-  var watch = new Stopwatch()..start();
-  var stateMachine = new StateMachine.fromGrammar(grammar);
+  final grammar = E;
+  final watch = new Stopwatch()..start();
+  final stateMachine = new StateMachine.fromGrammar(grammar);
   watch.stop();
+
   print("Built ${stateMachine.states.length} states from "
       "${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
@@ -30,6 +33,15 @@ void main() {
       "in ${watch.elapsed}");
   analyze(grammar, stateMachine);
   // printStates(stateMachine);
+
+  final parser = new Parser(encode(stateMachine));
+  var i = 0;
+  for (var l in parser.actions) print("${i++}: $l");
+  print("");
+
+  final input = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
+    ..add(Terminal.endOfInput);
+  print(parser.parse(input));
 }
 
 void analyze(Grammar grammar, StateMachine sm) {
@@ -48,7 +60,7 @@ void analyze(Grammar grammar, StateMachine sm) {
   print("  ${(100 * filledCells / totalCells).toStringAsPrecision(4)}% "
       "of the table is filled ($filledCells / $totalCells)");
   print("  ${emptyGotoRows} empty rows in the goto table");
-  print("  ${trivialActionRows} trivial rows in the action table");
+  // print("  ${trivialActionRows} trivial rows in the action table");
 }
 
 void printStates(StateMachine sm) {
