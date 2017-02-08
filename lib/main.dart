@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' show max;
 import 'package:built_collection/built_collection.dart';
 import 'src/encode.dart';
 import 'src/grammar.dart';
@@ -31,17 +32,16 @@ void main() {
       "${grammar.terminals.length} terminals and "
       "${grammar.productions.values.expand((x) => x).length} productions "
       "in ${watch.elapsed}");
-  analyze(grammar, stateMachine);
-  // printStates(stateMachine);
+  //analyze(grammar, stateMachine);
+  //printStates(stateMachine);
+  //printActions(parser);
 
   final parser = new Parser(encode(stateMachine));
-  var i = 0;
-  for (var l in parser.actions) print("${i++}: $l");
-  print("");
-
   final input = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
     ..add(Terminal.endOfInput);
-  print(parser.parse(input));
+
+  print("Parsed input $input into:");
+  printAst(parser.parse(input));
 }
 
 void analyze(Grammar grammar, StateMachine sm) {
@@ -79,6 +79,23 @@ void printStates(StateMachine sm) {
         "}");
     state.closure.forEachKey((p, l) => print("$p: {${l.join(",")}}"));
     print("");
+  }
+}
+
+void printActions(Parser parser) {
+  var i = 0;
+  for (var l in parser.actions) print("${i++}: $l");
+  print("");
+}
+
+void printAst(node, [String indent = '']) {
+  if (node is AstNode) {
+    print(indent + '-' + node.type.toString());
+    for (var child in node.children) {
+      printAst(child, indent + ' |');
+    }
+  } else {
+    print(indent + '-' + node.toString());
   }
 }
 
