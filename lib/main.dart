@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' show max;
 import 'package:built_collection/built_collection.dart';
 import 'src/encode.dart';
 import 'src/grammar.dart';
@@ -17,12 +16,20 @@ final Grammar E = parse("""
   <F> -> '(' <E> ')' ;
   <F> -> 'a' ;
 """);
+final inputForE = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
+  ..add(Terminal.endOfInput);
 
 /// |states| == 46626
-Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
+final Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
+final inputForC = "INT IDENTIFIER ( INT IDENTIFIER , CHAR * IDENTIFIER [ ] ) "
+    "{ RETURN IDENTIFIER * ( CONSTANT + CONSTANT ) ; }"
+    .split(" ")
+    .map((s) => new Terminal(s))
+    .toList()..add(Terminal.endOfInput);
 
 void main() {
-  final grammar = E;
+  final grammar = C;
+  final input = inputForC;
   final watch = new Stopwatch()..start();
   final stateMachine = new StateMachine.fromGrammar(grammar);
   watch.stop();
@@ -32,13 +39,12 @@ void main() {
       "${grammar.terminals.length} terminals and "
       "${grammar.productions.values.expand((x) => x).length} productions "
       "in ${watch.elapsed}");
+
+  final parser = new Parser(encode(stateMachine));
+
   //analyze(grammar, stateMachine);
   //printStates(stateMachine);
   //printActions(parser);
-
-  final parser = new Parser(encode(stateMachine));
-  final input = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
-    ..add(Terminal.endOfInput);
 
   print("Parsed input $input into:");
   printAst(parser.parse(input));

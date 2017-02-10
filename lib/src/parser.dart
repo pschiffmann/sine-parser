@@ -11,8 +11,14 @@ class Parser {
     var context = new ParsingContext(this, input.iterator);
     context.actions.add(new ExpandAction(0));
 
-    while (context.actions.isNotEmpty) {
-      context.actions.removeLast().execute(context);
+    try {
+      while (context.actions.isNotEmpty) {
+        context.actions.removeLast().execute(context);
+      }
+    } catch (e) {
+      print("reduced: ${context.reduced}");
+      print("actions: ${context.actions.reversed.join('\n')}");
+      throw e;
     }
 
     if (context.reduced.length != 1)
@@ -83,8 +89,8 @@ class LookAheadAction extends ParserAction {
     } else if (branches.containsKey(Terminal.emptyWord)) {
       context.actions.add(branches[Terminal.emptyWord]);
     } else {
-      throw new Exception(
-          "Input rejected at token `${context.tokens.current}`");
+      throw new Exception("Input rejected at token `${context.tokens.current}`,"
+          " expected one of ${branches.keys.toList()}");
     }
   }
 
