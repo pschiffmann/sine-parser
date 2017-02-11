@@ -249,8 +249,8 @@
 <expression_statement> -> ';' ;
 <expression_statement> -> <expression> ';' ;
 
-<selection_statement> -> 'IF' '(' <expression> ')' <statement> ;
-<selection_statement> -> 'IF' '(' <expression> ')' <statement> 'ELSE' <statement> ;
+<selection_statement> -> 'IF' '(' <expression> ')' <statement> 'ENDIF' ;
+<selection_statement> -> 'IF' '(' <expression> ')' <statement> 'ELSE' <statement> 'ENDIF' ;
 <selection_statement> -> 'SWITCH' '(' <expression> ')' <statement> ;
 
 <iteration_statement> -> 'WHILE' '(' <expression> ')' <statement> ;
