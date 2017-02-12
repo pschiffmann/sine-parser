@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:built_collection/built_collection.dart';
 import 'src/grammar.dart';
+import 'src/lr.dart';
 import 'src/parser.dart';
-import 'src/states.dart';
 
 /// G = ({Z, E, T, F}, {a, +, *, (, )}, {Z → E, E → E + T, E → T, T → T * F,
 ///                                      T → F, F → ( E ), F → a}, Z)
@@ -33,7 +33,7 @@ void main() {
   final graph = generate(grammar);
   watch.stop();
 
-  print("Built ${graph.states.length} "
+  print("Built ${graph.states} "
       "states from ${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
       "${grammar.productions.values.expand((x) => x).length} productions "
