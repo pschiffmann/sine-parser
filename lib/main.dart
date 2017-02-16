@@ -33,7 +33,7 @@ void main() {
   final graph = generate(grammar);
   watch.stop();
 
-  print("Built ${graph.states} "
+  print("Built ${graph.states.length} "
       "states from ${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
       "${grammar.productions.values.expand((x) => x).length} productions "

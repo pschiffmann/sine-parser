@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'package:built_collection/built_collection.dart';
 import 'package:quiver_hashcode/hashcode.dart';
 import 'package:tuple/tuple.dart';
+import 'encode.dart' show ShiftPlaceholder;
 import 'grammar.dart';
 import 'states.dart';
 
@@ -76,29 +77,43 @@ Map<GrammarSymbol, Set<Pass>> _expand(BuiltSet<Pass> kernel, Grammar grammar) {
 
 ///
 StateGraph generate(Grammar grammar) {
+  final graph = new StateGraph();
+  final firstState = new Tuple2<BuiltSet<Pass>, State>(
+      grammar.productions[grammar.startSymbol]
+          .map((production) => new Pass(production, Terminal.endOfInput)),
+      graph.allocate());
+
   // Contains all [State]s that have been discovered but not yet processed.
   // For these states, transitions still need to be calculated.
-  final queue = new Queue<Tuple2<BuiltSet<Pass>, State>>();
+  final queue = new Queue<Tuple2<BuiltSet<Pass>, State>>()..add(firstState);
 
   // Maps kernels to states.
-  final Map<BuiltSet<Pass>, State> states = {};
+  final Map<BuiltSet<Pass>, State> states = {
+    firstState.item1: firstState.item2
+  };
 
-  final graph = new StateGraph();
-
-  // Returns the [State] that corresponds to the assigned kernel. If the state
-  // needed to be created, also insert it into `queue`.
-  State lookup(Iterable<Pass> kernel, [Terminal shift]) {
+  // If a state for `kernel` already exists, returns it. Otherwise, allocates a
+  // new state and initializes it by
+  //   * setting the `immediateActions` to a shift action, if the state was
+  //     entered through a shift transition in the LR graph
+  //   * setting the `returnsAs` property to the set of left hand sides of all
+  //     kernels, if each of them is at `progress` 1.
+  State lookup(Iterable<Pass> kernel) {
     final builtKernel = new BuiltSet<Pass>(kernel);
     return states.putIfAbsent(builtKernel, () {
       final state = graph.allocate();
+      if (builtKernel.first.lastMatched is Terminal) {
+        state.immediateActions
+            .add(new ShiftPlaceholder(builtKernel.first.lastMatched));
+      }
+      if (builtKernel.every((pass) => pass.progress == 1)) {
+        state.returnsAs =
+            new Set.from(builtKernel.map((pass) => pass.production.lhs));
+      }
       queue.add(new Tuple2(builtKernel, state));
       return state;
     });
   }
-
-  // Place the first state in `queue`.
-  lookup(grammar.productions[grammar.startSymbol]
-      .map((production) => new Pass(production, Terminal.endOfInput)));
 
   while (queue.isNotEmpty) {
     final closure = _expand(queue.first.item1, grammar);
@@ -107,13 +122,16 @@ StateGraph generate(Grammar grammar) {
 
     closure.forEach((symbol, passes) {
       if (passes.first.complete) {
-        graph.addHandle(state, passes.first.production, symbol);
+        state.handles[symbol] = passes.first.production;
       } else {
-        final successor = lookup(passes.map((pass) => pass.advance()),
-            symbol is Terminal ? symbol : null);
-        var nonterminals = new HashSet<Nonterminal>();
-        for (final pass in passes) {}
-        graph.connect(state, successor, nonterminals);
+        final transition = new Transition(
+            target: lookup(passes.map((pass) => pass.advance())));
+        if (symbol is Terminal) {
+          state.lookAheadTransitions[symbol] = transition;
+        } else {
+          assert(symbol is Nonterminal);
+          state.continuations[symbol] = transition;
+        }
       }
     });
   }
@@ -127,6 +145,10 @@ class Pass {
   final Terminal follow;
 
   bool get complete => production.rhs.length == progress;
+
+  GrammarSymbol get lastMatched => progress == 0
+      ? throw new StateError("Not started")
+      : production.rhs[progress - 1];
 
   GrammarSymbol get expected =>
       complete ? throw new StateError("done!") : production.rhs[progress];
