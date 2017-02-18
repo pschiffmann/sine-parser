@@ -28,12 +28,12 @@ final inputForC = "INT IDENTIFIER ( INT IDENTIFIER , CHAR * IDENTIFIER [ ] ) "
 
 void main() {
   final grammar = E;
-  final input = inputForE;
+  //final input = inputForE;
   final watch = new Stopwatch()..start();
   final graph = generate(grammar);
   watch.stop();
 
-  print("Built ${graph.states.length} "
+  print("Built ${graph.length} "
       "states from ${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
       "${grammar.productions.values.expand((x) => x).length} productions "
