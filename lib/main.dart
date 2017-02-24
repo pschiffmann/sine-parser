@@ -1,8 +1,11 @@
+import 'dart:collection';
 import 'dart:io';
 import 'package:built_collection/built_collection.dart';
+import 'src/encode.dart';
 import 'src/grammar.dart';
 import 'src/lr.dart';
 import 'src/parser.dart';
+import 'src/states.dart';
 
 /// G = ({Z, E, T, F}, {a, +, *, (, )}, {Z → E, E → E + T, E → T, T → T * F,
 ///                                      T → F, F → ( E ), F → a}, Z)
@@ -33,11 +36,17 @@ void main() {
   final graph = generate(grammar);
   watch.stop();
 
-  print("Built ${graph.length} "
+  print("Built ${countStates(graph)} "
       "states from ${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
-      "${grammar.productions.values.expand((x) => x).length} productions "
+      "${grammar.productions.values.length} productions "
       "in ${watch.elapsed}");
+
+  print("Encoding states as:");
+  var i = 0;
+  for (final sequence in encode(graph)) {
+    print("${i++}: ${sequence.join(" ")}");
+  }
 
   //analyze(grammar, stateMachine);
   //printStates(stateMachine);
@@ -45,6 +54,24 @@ void main() {
 
   //print("Parsed input $input into:");
   //printAst(parser.parse(input));
+}
+
+int countStates(IntermediateState firstState) {
+  final discovered = new Set<State>();
+  final queue = new Queue<IntermediateState>()..add(firstState);
+
+  while (queue.isNotEmpty) {
+    final state = queue.removeFirst();
+    state.lookAhead.forEach((_, successor) {
+      if (discovered.add(successor) && successor is IntermediateState)
+        queue.add(successor);
+    });
+    state.continuations.forEach((_, successor) {
+      if (discovered.add(successor)) queue.add(successor);
+    });
+  }
+
+  return discovered.length;
 }
 
 void printActions(Parser parser) {

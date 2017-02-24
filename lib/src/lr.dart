@@ -2,17 +2,9 @@ import 'dart:collection';
 import 'package:built_collection/built_collection.dart';
 import 'package:quiver_hashcode/hashcode.dart';
 import 'package:tuple/tuple.dart';
+import 'encode.dart';
 import 'grammar.dart';
-
-class State {
-  final Terminal shift;
-  final BuiltSet<Nonterminal> returnsAs;
-  final Map<Terminal, State> lookAheadTransitions = {};
-  final Map<Terminal, Production> handles = {};
-  final Map<Nonterminal, State> continuations = {};
-
-  State({this.shift, this.returnsAs});
-}
+import 'states.dart';
 
 /// Expands the assigned _kernel_ into the corresponding _closure_. The closure
 /// is then grouped by the `expected` symbol of each pass.
@@ -84,14 +76,20 @@ Map<GrammarSymbol, Set<Pass>> _expand(BuiltSet<Pass> kernel, Grammar grammar) {
 }
 
 ///
-Set<State> generate(Grammar grammar) {
+State generate(Grammar grammar) {
+  final firstState = new IntermediateState();
+
   // Maps kernels to states.
   final Map<BuiltSet<Pass>, State> states = {
     // Initialize with first state
     new BuiltSet<Pass>(grammar.productions[grammar.startSymbol]
             .map((production) => new Pass(production, Terminal.endOfInput))):
-        new State()
+        firstState
   };
+
+  final Map<Production, Handle> handles = new Map.fromIterable(
+      grammar.productions.values,
+      value: (production) => new Handle(production));
 
   // Contains all [State]s that have been discovered but not yet processed.
   // For these states, transitions still need to be calculated.
@@ -107,14 +105,14 @@ Set<State> generate(Grammar grammar) {
   State lookup(Iterable<Pass> kernel) {
     final builtKernel = new BuiltSet<Pass>(kernel);
     return states.putIfAbsent(builtKernel, () {
-      final state = new State(
-          shift: builtKernel.first.lastMatched is Terminal
-              ? builtKernel.first.lastMatched
-              : null,
-          returnsAs: builtKernel.every((pass) => pass.progress == 1)
-              ? new BuiltSet<Nonterminal>(
-                  builtKernel.map((pass) => pass.production.lhs))
-              : null);
+      final state = builtKernel.every((pass) => pass.progress == 1)
+          ? new IntermediateState(
+              builtKernel.map((pass) => pass.production.lhs))
+          : new IntermediateState();
+      if (builtKernel.first.lastMatched is Terminal)
+        state.immediate
+            .add(new ShiftPlaceholder(builtKernel.first.lastMatched));
+
       queue.add(new Tuple2(builtKernel, state));
       return state;
     });
@@ -126,21 +124,13 @@ Set<State> generate(Grammar grammar) {
     queue.removeFirst();
 
     closure.forEach((symbol, passes) {
-      if (passes.first.complete) {
-        state.handles[symbol] = passes.first.production;
-      } else {
-        final target = lookup(passes.map((pass) => pass.advance()));
-        if (symbol is Terminal) {
-          state.lookAheadTransitions[symbol] = target;
-        } else {
-          assert(symbol is Nonterminal);
-          state.continuations[symbol] = target;
-        }
-      }
+      state.on(symbol).to = passes.first.complete
+          ? handles[passes.single.production]
+          : lookup(passes.map((pass) => pass.advance()));
     });
   }
 
-  return new Set.from(states.values);
+  return firstState;
 }
 
 class Pass {

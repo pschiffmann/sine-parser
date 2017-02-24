@@ -8,13 +8,8 @@
 ///     predecessor.
 import 'states.dart';
 
-void optimize(StateGraph graph) {
-  _mergeEquivalent(graph);
-  _inlineSinglyReferenced(graph);
-}
-
 /// Sorts all states into a hash table by transitions and handles.
-void _mergeEquivalent(StateGraph graph) {
+void mergeEquivalent(State firstState) {
 /*
   table = {}
   queue = graph.states
@@ -31,7 +26,7 @@ void _mergeEquivalent(StateGraph graph) {
 */
 }
 
-void _inlineSinglyReferenced(StateGraph graph) {
+void inlineSinglyReferenced(State firstState) {
 /*
   for transition in graph.transitions:
     if transition.target.predecessors == 1:

@@ -1,46 +1,87 @@
 ///
 library sine_parser.src.states;
 
-import 'encode.dart' show ActionSequence, ActionPlaceholder;
+import 'dart:collection';
+import 'package:built_collection/built_collection.dart';
+import 'package:collection/collection.dart';
+import 'encode.dart';
 import 'grammar.dart';
 
-class StateGraph {
-  final Set<State> states = new Set();
+abstract class State {
+  final Map<IntermediateState, GrammarSymbol> _predecessors = new HashMap();
+  Map<IntermediateState, GrammarSymbol> get predecessors =>
+      new UnmodifiableMapView(_predecessors);
+}
 
-  State allocate() {
-    final state = new State._(states.length, this);
-    states.add(state);
-    return state;
+class IntermediateState extends State {
+  final Map<Terminal, State> _lookAhead = new HashMap();
+  final Map<Nonterminal, State> _continuations = new HashMap();
+
+  final List<ActionPlaceholder> immediate = [];
+  Map<Terminal, State> get lookAhead => new UnmodifiableMapView(_lookAhead);
+  Map<Nonterminal, State> get continuations =>
+      new UnmodifiableMapView(_continuations);
+  final BuiltSet<Nonterminal> returnsAs;
+
+  IntermediateState([Iterable<Nonterminal> returnsAs = const []])
+      : returnsAs = new BuiltSet<Nonterminal>(returnsAs);
+
+  Transition on(GrammarSymbol symbol) => symbol is Nonterminal
+      ? new Transition<Nonterminal>._(this, symbol, _continuations)
+      : new Transition<Terminal>._(this, symbol as Terminal, _lookAhead);
+
+  int get length {
+    var total = immediate.length;
+    if (_lookAhead.isNotEmpty) total++;
+    if (_continuations.isNotEmpty) total++;
+    return total;
+  }
+
+  List<ActionPlaceholder> encode() {
+    final result = new List.from(immediate);
+    if (_continuations.isNotEmpty) {
+      final continueAction = _continuations.values.toSet().length == 1
+          ? new ExpandPlaceholder(_continuations.values.first)
+          : new ContinuePlaceholder(
+              new BuiltMap<Nonterminal, State>(_continuations));
+      result.add(new MarkPlaceholder(continueAction));
+    }
+    if (_lookAhead.isNotEmpty) {
+      final lookAheadAction = _lookAhead.values.toSet().length == 1
+          ? new ExpandPlaceholder(_lookAhead.values.first)
+          : new LookAheadPlaceholder(new BuiltMap<Terminal, State>(_lookAhead));
+      result.add(lookAheadAction);
+    }
+    return result;
   }
 }
 
-class State implements ActionSequence {
-  final int id;
-  final StateGraph _graph;
-  State._(this.id, this._graph);
+class Handle extends State {
+  final Production production;
 
-  final List<ActionPlaceholder> immediateActions = [];
-  Set<Nonterminal> returnsAs;
-  final Map<Terminal, Transition> lookAheadTransitions = {};
-  final Map<Terminal, Production> handles = {};
-  final Map<Nonterminal, Transition> continuations = {};
+  Handle(this.production);
 
-  encode() => throw new UnimplementedError();
-  int get length => throw new UnimplementedError();
+  int get length => 1;
+  List<ActionPlaceholder> encode() => [new ReducePlaceholder(production)];
 }
 
-class Transition implements ActionSequence {
-  State target;
-  final List<ActionPlaceholder> actions;
+class Transition<S extends GrammarSymbol> {
+  final Map<S, State> _successorMap;
 
-/*  bool get isHandle =>
-      target == null &&
-      actions.length == 1 &&
-      actions.first is ReducePlaceholder;*/
+  final IntermediateState from;
+  final S via;
 
-  Transition({this.target, List<ActionPlaceholder> actions})
-      : actions = actions ?? [];
+  State get to => _successorMap[via];
 
-  encode() => throw new UnimplementedError();
-  int get length => throw new UnimplementedError();
+  void set to(State to) {
+    final oldTo = _successorMap[via];
+    if (oldTo != null) {
+      oldTo._predecessors.remove(from);
+    }
+
+    _successorMap[via] = to;
+    to._predecessors[from] = via;
+  }
+
+  Transition._(this.from, this.via, this._successorMap);
 }

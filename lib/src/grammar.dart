@@ -68,7 +68,7 @@ class Grammar {
 
   final BuiltSet<Nonterminal> nonterminals;
   final BuiltSet<Terminal> terminals;
-  final BuiltMap<Nonterminal, BuiltSet<Production>> productions;
+  final BuiltSetMultimap<Nonterminal, Production> productions;
   final Nonterminal startSymbol;
 
   final BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>> first;
@@ -81,16 +81,8 @@ class Grammar {
   factory Grammar.fromProductions(
       Iterable<Production> productions, Nonterminal startSymbol,
       {String name}) {
-    var productionMap = new BuiltMap<Nonterminal, BuiltSet<Production>>(() {
-      var result = {};
-      for (var production in productions) {
-        result.putIfAbsent(production.lhs, () => []).add(production);
-      }
-      for (var nonterminal in result.keys) {
-        result[nonterminal] = new BuiltSet<Production>(result[nonterminal]);
-      }
-      return result;
-    }());
+    var productionMap = new BuiltSetMultimap<Nonterminal, Production>.build(
+        (b) => b.addIterable(productions, key: (production) => production.lhs));
     var nonterminals = new BuiltSet<Nonterminal>(productionMap.keys),
         terminals = new BuiltSet<Terminal>.build((b) => b
           ..add(Terminal.endOfInput)
@@ -128,7 +120,7 @@ class Grammar {
 ///
 Tuple2<BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>>,
         BuiltMap<Nonterminal, bool>>
-    _calculateFirst(BuiltMap<Nonterminal, BuiltSet<Production>> productions) {
+    _calculateFirst(BuiltSetMultimap<Nonterminal, Production> productions) {
   var first =
           new HashMap.fromIterable(productions.keys, value: (_) => new Set()),
       nullable =
@@ -141,8 +133,7 @@ Tuple2<BuiltMap<Nonterminal, BuiltSet<GrammarSymbol>>,
           productions.keys,
           value: (_) => []);
 
-  var queue =
-      new LinkedHashSet<Production>.from(productions.values.expand((x) => x));
+  var queue = new LinkedHashSet<Production>.from(productions.values);
   while (queue.isNotEmpty) {
     var production = queue.first;
     queue.remove(production);
