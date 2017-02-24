@@ -31,7 +31,7 @@ final inputForC = "INT IDENTIFIER ( INT IDENTIFIER , CHAR * IDENTIFIER [ ] ) "
 
 void main() {
   final grammar = E;
-  //final input = inputForE;
+  final input = inputForE;
   final watch = new Stopwatch()..start();
   final graph = generate(grammar);
   watch.stop();
@@ -52,8 +52,8 @@ void main() {
   //printStates(stateMachine);
   //printActions(parser);
 
-  //print("Parsed input $input into:");
-  //printAst(parser.parse(input));
+  print("Parsed input $input into:");
+  printAst(new Parser(encode(graph)).parse(input));
 }
 
 int countStates(IntermediateState firstState) {

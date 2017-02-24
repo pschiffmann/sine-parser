@@ -6,11 +6,11 @@ import 'states.dart';
 
 typedef int addressOf(State sequence);
 
-List<List<ParserAction>> encode(State firstState) {
+BuiltList<BuiltList<ParserAction>> encode(State firstState) {
   final queue = new Queue<State>()..add(firstState);
   final Map<State, int> addresses = new HashMap();
 
-  final result = <List<ParserAction>>[];
+  final result = <BuiltList<ParserAction>>[];
 
   int addressOf(State state) {
     return addresses.putIfAbsent(state, () {
@@ -21,13 +21,11 @@ List<List<ParserAction>> encode(State firstState) {
 
   while (queue.isNotEmpty) {
     final state = queue.removeFirst();
-    result[addressOf(state)] = state
-        .encode()
-        .map((placeholder) => placeholder.resolve(addressOf))
-        .toList();
+    result[addressOf(state)] = new BuiltList<ParserAction>(
+        state.encode().map((placeholder) => placeholder.resolve(addressOf)));
   }
 
-  return result;
+  return new BuiltList<BuiltList<ParserAction>>(result);
 }
 
 abstract class ActionPlaceholder {
