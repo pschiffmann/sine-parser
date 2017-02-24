@@ -28,6 +28,10 @@ BuiltList<BuiltList<ParserAction>> encode(State firstState) {
   return new BuiltList<BuiltList<ParserAction>>(result);
 }
 
+ParserAction unpackSingle(State state, addressOf addressOf) => state.length == 1
+    ? state.encode().single.resolve(addressOf)
+    : new ExpandAction(addressOf(state));
+
 abstract class ActionPlaceholder {
   ParserAction resolve(addressOf addressOf);
 }
@@ -43,9 +47,7 @@ class ExpandPlaceholder extends ActionPlaceholder {
   final State target;
   ExpandPlaceholder(this.target);
 
-  ExpandAction resolve(addressOf addressOf) {
-    return new ExpandAction(addressOf(target));
-  }
+  ParserAction resolve(addressOf addressOf) => unpackSingle(target, addressOf);
 }
 
 class LookAheadPlaceholder extends ActionPlaceholder {
@@ -53,13 +55,9 @@ class LookAheadPlaceholder extends ActionPlaceholder {
   LookAheadPlaceholder(this.branches);
 
   LookAheadAction resolve(addressOf addressOf) =>
-      new LookAheadAction(new BuiltMap<Terminal, ParserAction>.build(
-          (b) => b.addIterable(branches.keys, value: (symbol) {
-                final successor = branches[symbol];
-                return successor.length == 1
-                    ? successor.encode().single.resolve(addressOf)
-                    : new ExpandAction(addressOf(successor));
-              })));
+      new LookAheadAction(new BuiltMap<Terminal, ParserAction>.build((b) =>
+          b.addIterable(branches.keys,
+              value: (symbol) => unpackSingle(branches[symbol], addressOf))));
 }
 
 class ContinuePlaceholder extends ActionPlaceholder {
@@ -67,13 +65,9 @@ class ContinuePlaceholder extends ActionPlaceholder {
   ContinuePlaceholder(this.branches);
 
   ContinueAction resolve(addressOf addressOf) =>
-      new ContinueAction(new BuiltMap<Nonterminal, ParserAction>.build(
-          (b) => b.addIterable(branches.keys, value: (symbol) {
-                final successor = branches[symbol];
-                return successor.length == 1
-                    ? successor.encode().single.resolve(addressOf)
-                    : new ExpandAction(addressOf(successor));
-              })));
+      new ContinueAction(new BuiltMap<Nonterminal, ParserAction>.build((b) =>
+          b.addIterable(branches.keys,
+              value: (symbol) => unpackSingle(branches[symbol], addressOf))));
 }
 
 class ReducePlaceholder extends ActionPlaceholder {

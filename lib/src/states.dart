@@ -11,6 +11,9 @@ abstract class State {
   final Map<IntermediateState, GrammarSymbol> _predecessors = new HashMap();
   Map<IntermediateState, GrammarSymbol> get predecessors =>
       new UnmodifiableMapView(_predecessors);
+
+  int get length;
+  List<ActionPlaceholder> encode();
 }
 
 class IntermediateState extends State {
