@@ -21,7 +21,6 @@ final Grammar E = parse("""
 final inputForE = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
   ..add(Terminal.endOfInput);
 
-/// |states| == 46626
 final Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
 final inputForC = "INT IDENTIFIER ( INT IDENTIFIER , CHAR * IDENTIFIER [ ] ) "
     "{ RETURN IDENTIFIER * ( CONSTANT + CONSTANT ) ; }"
@@ -33,61 +32,79 @@ void main() {
   final grammar = E;
   final input = inputForE;
   final watch = new Stopwatch()..start();
-  final graph = generate(grammar);
+  final firstState = generate(grammar);
+  final actions = encode(firstState);
   watch.stop();
 
-  print("Built ${countStates(graph)} "
-      "states from ${grammar.nonterminals.length} nonterminals, "
+  print("Input grammar contains ${grammar.nonterminals.length} nonterminals, "
       "${grammar.terminals.length} terminals and "
-      "${grammar.productions.values.length} productions "
-      "in ${watch.elapsed}");
+      "${grammar.productions.values.length} productions.");
+  countStates(
+      firstState, grammar.terminals.length + grammar.nonterminals.length);
+  countActions(actions, grammar.terminals.length, grammar.nonterminals.length);
+  print("Generating LR graph, optimizing and encoding took ${watch.elapsed}");
 
-  print("Encoding states as:");
-  var i = 0;
-  for (final sequence in encode(graph)) {
-    print("${i++}: ${sequence.join(" ")}");
-  }
-
-  //analyze(grammar, stateMachine);
-  //printStates(stateMachine);
-  //printActions(parser);
-
+  //printActions(actions);
   print("Parsed input $input into:");
-  printAst(new Parser(encode(graph)).parse(input));
+  printAst(new Parser(actions).parse(input));
 }
 
-int countStates(IntermediateState firstState) {
+void countStates(IntermediateState firstState, int columnCount) {
   final discovered = new Set<State>();
   final queue = new Queue<IntermediateState>()..add(firstState);
 
   while (queue.isNotEmpty) {
     final state = queue.removeFirst();
     state.lookAhead.forEach((_, successor) {
-      if (discovered.add(successor) && successor is IntermediateState)
+      if (successor is IntermediateState && discovered.add(successor))
         queue.add(successor);
     });
     state.continuations.forEach((_, successor) {
       if (discovered.add(successor)) queue.add(successor);
     });
   }
-
-  return discovered.length;
+  print('Canonical LR state graph contains ${discovered.length} states, '
+      'resulting in a parser table with '
+      '${discovered.length * columnCount} cells');
 }
 
-void printActions(Parser parser) {
+void countActions(BuiltList<BuiltList<ParserAction>> actions, int terminals,
+    int nonterminals) {
+  var listActions = 0, lookAheadRows = 0, continueRows = 0;
+  for (final list in actions) {
+    listActions += list.length;
+    for (var action in list) {
+      if (action is MarkAction) action = action.action;
+      if (action is LookAheadAction) {
+        lookAheadRows++;
+      } else if (action is ContinueAction) {
+        continueRows++;
+      }
+    }
+  }
+  print('sine parser algorithm uses a total of '
+      '${listActions + lookAheadRows * terminals + continueRows * nonterminals}'
+      ' cells ($listActions as action sequences, $lookAheadRows lookahead rows,'
+      ' $continueRows continuation rows)');
+}
+
+void printActions(BuiltList<BuiltList<ParserAction>> actions) {
   var i = 0;
-  for (var l in parser.actions) print("${i++}: $l");
+  for (var l in actions) print("${i++}: $l");
   print("");
 }
 
 void printAst(node, [String indent = '']) {
+  final prefix =
+      indent.isEmpty ? '' : '${indent.substring(0, indent.length - 3)} +-';
   if (node is AstNode) {
-    print(indent + '-' + node.type.toString());
-    for (var child in node.children) {
-      printAst(child, indent + ' |');
+    print(prefix + node.type.toString());
+    for (var i = 0; i < node.children.length; i++) {
+      printAst(node.children[i],
+          indent + (i == node.children.length - 1 ? '   ' : ' | '));
     }
   } else {
-    print(indent + '-' + node.toString());
+    print(prefix + node.toString());
   }
 }
 
