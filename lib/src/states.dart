@@ -36,7 +36,6 @@ class IntermediateState extends State {
   int get length {
     var total = immediate.length;
     if (_lookAhead.length == 1 &&
-        _lookAhead.values.first != this &&
         _lookAhead.values.first.predecessors.length == 1) {
       total += _lookAhead.values.first.length;
     } else if (_lookAhead.isNotEmpty) {
@@ -58,7 +57,6 @@ class IntermediateState extends State {
       result.add(new MarkPlaceholder(continueAction));
     }
     if (_lookAhead.length == 1 &&
-        _lookAhead.values.first != this &&
         _lookAhead.values.first.predecessors.length == 1) {
       result.addAll(_lookAhead.values.first.encode());
     } else if (_lookAhead.isNotEmpty) {
