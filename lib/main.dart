@@ -21,7 +21,7 @@ final Grammar E = parse("""
 final inputForE = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
   ..add(Terminal.endOfInput);
 
-final Grammar C = parse(new File("grammars/C.gardener").readAsStringSync());
+final Grammar C = parse(new File("grammars/C.txt").readAsStringSync());
 final inputForC = "INT IDENTIFIER ( INT IDENTIFIER , CHAR * IDENTIFIER [ ] ) "
     "{ RETURN IDENTIFIER * ( CONSTANT + CONSTANT ) ; }"
     .split(" ")
