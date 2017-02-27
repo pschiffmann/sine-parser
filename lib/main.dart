@@ -7,30 +7,32 @@ import 'src/lr.dart';
 import 'src/parser.dart';
 import 'src/states.dart';
 
-/// G = ({Z, E, T, F}, {a, +, *, (, )}, {Z → E, E → E + T, E → T, T → T * F,
-///                                      T → F, F → ( E ), F → a}, Z)
-final Grammar E = parse("""
-  <Z> -> <E> ;
-  <E> -> <E> '+' <T> ;
-  <E> -> <T> ;
-  <T> -> <T> '*' <F> ;
-  <T> -> <F> ;
-  <F> -> '(' <E> ')' ;
-  <F> -> 'a' ;
-""");
-final inputForE = "a+a*(a*a)".split("").map((s) => new Terminal(s)).toList()
-  ..add(Terminal.endOfInput);
+void main([List<String> args = const ['expr']]) {
+  if (args.length != 1 ||
+      !new Directory('grammars/${args.first}').existsSync()) {
+    print('The first and only argument must be the name of a '
+        'directory inside `./grammars`.');
+    print('This program expects to find two files in this directory:');
+    print(' - `definition.txt` contains the production rules for the grammar.');
+    print('   The left hand side of the first production is the start symbol.');
+    print('   As a temporary workaround, The start symbol must not occur on');
+    print('   the right hand side of any production, and the right hand side');
+    print('   the start symbol must have a length of 1.');
+    print(' - `input.txt` contains the example input to parse; all tokens');
+    print('   must be on a single line, separated with a single space, and');
+    print('   only contain names of terminals used in the grammar definition.');
+    return;
+  }
 
-final Grammar C = parse(new File("grammars/C.txt").readAsStringSync());
-final inputForC = "INT IDENTIFIER ( INT IDENTIFIER , CHAR * IDENTIFIER [ ] ) "
-    "{ RETURN IDENTIFIER * ( CONSTANT + CONSTANT ) ; }"
-    .split(" ")
-    .map((s) => new Terminal(s))
-    .toList()..add(Terminal.endOfInput);
+  final grammar = parseGrammarDefinition(
+      new File("grammars/${args.first}/definition.txt").readAsStringSync());
+  final input = new File("grammars/${args.first}/input.txt")
+      .readAsStringSync()
+      .trim()
+      .split(" ")
+      .map((s) => new Terminal(s))
+      .toList()..add(Terminal.endOfInput);
 
-void main() {
-  final grammar = E;
-  final input = inputForE;
   final watch = new Stopwatch()..start();
   final firstState = generate(grammar);
   final actions = encode(firstState);
@@ -113,7 +115,7 @@ void printAst(node, [String indent = '', bool lastChild]) {
 
 /// Parses `source` as a Grammar definition. Because it splits at `/\s+/`, all
 /// tokens must be separated by a whitespace!
-Grammar parse(String source) {
+Grammar parseGrammarDefinition(String source) {
   var tokens = source.trim().split(new RegExp(r'\s+'));
   var productions = <Production>[];
   var startSymbol;
