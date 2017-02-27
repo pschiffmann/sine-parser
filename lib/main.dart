@@ -96,20 +96,18 @@ void printActions(BuiltList<BuiltList<ParserAction>> actions) {
   print("");
 }
 
-void printAst(node, [String indent = '', bool lastChild]) {
-  final prefix = indent.isEmpty
-      ? ''
-      : '${indent.substring(0, indent.length - 3)} ${lastChild ? "└" : "├"}╴';
+void printAst(node, [String nodePrefix = '', String indent = '']) {
   if (node is AstNode) {
-    print(prefix + node.type.toString());
+    print(nodePrefix + node.type.toString());
     for (var i = 0; i < node.children.length; i++) {
-      printAst(
-          node.children[i],
-          indent + (i == node.children.length - 1 ? '   ' : ' │ '),
-          i == node.children.length - 1);
+      if (i == node.children.length - 1) {
+        printAst(node.children[i], indent + ' └╴', indent + '   ');
+      } else {
+        printAst(node.children[i], indent + ' ├╴', indent + ' │ ');
+      }
     }
   } else {
-    print(prefix + node.toString());
+    print(nodePrefix + node.toString());
   }
 }
 
