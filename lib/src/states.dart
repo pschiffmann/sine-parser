@@ -26,6 +26,15 @@ class IntermediateState extends State {
       new UnmodifiableMapView(_continuations);
   final BuiltSet<Nonterminal> returnsAs;
 
+  Iterable<Transition> get transitions sync* {
+    for (final symbol in _lookAhead.keys) {
+      yield new Transition<Terminal>._(this, symbol, _lookAhead);
+    }
+    for (final symbol in _continuations.keys) {
+      yield new Transition<Nonterminal>._(this, symbol, _continuations);
+    }
+  }
+
   IntermediateState([Iterable<Nonterminal> returnsAs = const []])
       : returnsAs = new BuiltSet<Nonterminal>(returnsAs);
 
@@ -92,8 +101,12 @@ class Transition<S extends GrammarSymbol> {
       oldTo._predecessors.remove(from);
     }
 
-    _successorMap[via] = to;
-    to._predecessors[from] = via;
+    if (to == null) {
+      _successorMap.remove(via);
+    } else {
+      _successorMap[via] = to;
+      to._predecessors[from] = via;
+    }
   }
 
   Transition._(this.from, this.via, this._successorMap);
