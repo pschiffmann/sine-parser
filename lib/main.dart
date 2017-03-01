@@ -47,7 +47,7 @@ void main([List<String> args = const ['expr']]) {
   print("Generating LR graph, optimizing and encoding took ${watch.elapsed}");
 
   //printActions(actions);
-  print("Parsed input $input into:");
+  print("Parsed input ${input.sublist(0, input.length - 2).join(" ")} into:");
   printAst(new Parser(actions).parse(input));
 }
 
