@@ -157,5 +157,42 @@ class AstNode {
 
   AstNode(this.type, this.children);
 
-  String toString() => '($type: ${children.join(", ")})';
+  String toString() {
+    final result = new StringBuffer();
+    final stack = <Map>[];
+
+    void put(List children) {
+      if (children.isNotEmpty) stack.add({'children': children, 'progress': 0});
+    }
+
+    bool isLastChild(Map level) {
+      return level['progress'] == level['children'].length;
+    }
+
+    result.writeln(type);
+    put(children);
+
+    while (stack.isNotEmpty) {
+      final node = stack.last['children'][stack.last['progress']++];
+
+      result
+        ..writeAll(stack
+            .take(stack.length - 1)
+            .map((level) => isLastChild(level) ? '   ' : ' │ '))
+        ..write(isLastChild(stack.last) ? ' └╴' : ' ├╴');
+
+      if (node is AstNode) {
+        result.writeln(node.type);
+        put(node.children);
+      } else {
+        result.writeln(node);
+      }
+
+      while (stack.isNotEmpty && isLastChild(stack.last)) {
+        stack.removeLast();
+      }
+    }
+
+    return result.toString();
+  }
 }

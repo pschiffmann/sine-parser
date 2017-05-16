@@ -31,7 +31,8 @@ void main([List<String> args = const ['expr']]) {
       .trim()
       .split(" ")
       .map((s) => new Terminal(s))
-      .toList()..add(Terminal.endOfInput);
+      .toList()
+        ..add(Terminal.endOfInput);
 
   final watch = new Stopwatch()..start();
   final firstState = generate(grammar);
@@ -48,7 +49,7 @@ void main([List<String> args = const ['expr']]) {
 
   //printActions(actions);
   print("Parsed input ${input.sublist(0, input.length - 2).join(" ")} into:");
-  printAst(new Parser(actions).parse(input));
+  print(new Parser(actions).parse(input).toString());
 }
 
 void countStates(IntermediateState firstState, int columnCount) {
@@ -94,21 +95,6 @@ void printActions(BuiltList<BuiltList<ParserAction>> actions) {
   var i = 0;
   for (var l in actions) print("${i++}: $l");
   print("");
-}
-
-void printAst(node, [String nodePrefix = '', String indent = '']) {
-  if (node is AstNode) {
-    print(nodePrefix + node.type.toString());
-    for (var i = 0; i < node.children.length; i++) {
-      if (i == node.children.length - 1) {
-        printAst(node.children[i], indent + ' └╴', indent + '   ');
-      } else {
-        printAst(node.children[i], indent + ' ├╴', indent + ' │ ');
-      }
-    }
-  } else {
-    print(nodePrefix + node.toString());
-  }
 }
 
 /// Parses `source` as a Grammar definition. Because it splits at `/\s+/`, all
